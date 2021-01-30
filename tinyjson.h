@@ -23,10 +23,19 @@ int json_parse(json_value* v, const std::string& json);
 //获取json_value的json_type
 //re：json_type；para：json_value
 json_type json_get_type(const json_value* v);
-
-
 }
 
 
+class Json{
+
+};
+
+class Json_Parse : private Json{
+
+};
+
+class Json_Generate : private Json{
+
+};
 
 #endif /*TINYJSON_H__*/
