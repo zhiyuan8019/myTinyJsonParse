@@ -1,23 +1,36 @@
 #include "tinyjson.h"
 #include <string>
-
+#include <cctype>
+#include <stdexcept>
 
 
 Json::Json() {
     type = tinyjson::JSON_NULL;
+    n = 0;
 }
 
 void Json::set_type(tinyjson::json_type atype) {
     type = atype;
 }
 
-tinyjson::json_type Json::json_get_type() {
+tinyjson::json_type Json::json_get_type() const{
     return type;
 }
+
+double Json::json_get_number() const {
+    return n;
+}
+
+void Json::set_num(double adouble) {
+    n = adouble;
+}
+
 
 int Json_Parse::json_parse(const std::string &js_string) {
     str_buff = &js_string;
     str_size = str_buff->length();
+    index  = 0;
+    set_type(tinyjson::JSON_NULL);
     if(str_size==0)return tinyjson::JSON_PARSE_EXPECT_VALUE;
     int parse_result;
     parse_ws();
@@ -49,7 +62,7 @@ int Json_Parse::parse_value() {
         case 'n':  return parse_null();
         case 'f':  return parse_false();
         case 't':  return parse_true();
-        default:   return tinyjson::JSON_PARSE_INVALID_VALUE;
+        default:   return parse_number();
     }
 }
 
@@ -84,4 +97,62 @@ int Json_Parse::parse_true() {
     index+=4;
     set_type(tinyjson::JSON_TRUE);
     return tinyjson::JSON_PARSE_OK;
+}
+/*!
+* @brief:数字解析，由于stod()是json数字语法规则的超集，需要先检测
+* @param:
+* @return:
+*/
+int Json_Parse::parse_number() {
+    std::string num;
+    bool isNegOfDex = false;
+    size_t left =index;
+    if(str_buff->at(index)=='-')++index;
+    if(index<str_size&&str_buff->at(index)=='0'){
+        ++index;
+    }else{
+        if(index>=str_size||!isdigit(str_buff->at(index)))return tinyjson::JSON_PARSE_INVALID_VALUE;
+        while(index<str_size&&isdigit(str_buff->at(index))) {
+            ++index;
+        }
+    }
+    if(index<str_size&&str_buff->at(index)=='.'){
+        ++index;
+        if(index>=str_size||!isdigit(str_buff->at(index))){
+            return tinyjson::JSON_PARSE_INVALID_VALUE;
+        }
+        while(index<str_size&&isdigit(str_buff->at(index))) {
+            ++index;
+        }
+    }
+    if(index<str_size&&(str_buff->at(index)=='e'||str_buff->at(index)=='E')){
+        ++index;
+        if (index<str_size&&(str_buff->at(index) == '+' || str_buff->at(index) == '-')){
+            if(str_buff->at(index) == '-')isNegOfDex = true;
+            ++index;
+        }
+        if(index>=str_size||!isdigit(str_buff->at(index))){
+            return tinyjson::JSON_PARSE_INVALID_VALUE;
+        }
+        while(index<str_size&&isdigit(str_buff->at(index))) {
+            ++index;
+        }
+    }
+    num = str_buff->substr(left,index-left+1);
+    try {
+        double tmp= std::stod(num);
+        set_num(tmp);
+    } catch (const std::out_of_range& oor) {
+        /*!
+         * @warning:此处是危险的实现，因为直接使用指数符号为负判断是下溢
+         */
+        if(isNegOfDex){
+            set_type(tinyjson::JSON_NUMBER);
+            return tinyjson::JSON_PARSE_OK;
+        }
+        return tinyjson::JSON_PARSE_NUMBER_TOO_BIG;
+    }
+    set_type(tinyjson::JSON_NUMBER);
+    return tinyjson::JSON_PARSE_OK;
+
 }
