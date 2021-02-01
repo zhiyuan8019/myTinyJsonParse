@@ -13,11 +13,16 @@ typedef enum { JSON_NULL = 0, JSON_FALSE, JSON_TRUE, JSON_NUMBER, JSON_STRING, J
 
 //解析结果
 enum {
-    JSON_PARSE_OK = 0,              //OK
-    JSON_PARSE_EXPECT_VALUE,        //json空
-    JSON_PARSE_INVALID_VALUE,       //数据无效
-    JSON_PARSE_ROOT_NOT_SINGULAR,   //有效数据后含有其他非ws字符
-    JSON_PARSE_NUMBER_TOO_BIG       //数字过大
+    JSON_PARSE_OK = 0,                  //OK
+    JSON_PARSE_EXPECT_VALUE,            //json空
+    JSON_PARSE_INVALID_VALUE,           //数据无效
+    JSON_PARSE_ROOT_NOT_SINGULAR,       //有效数据后含有其他非ws字符
+    JSON_PARSE_NUMBER_TOO_BIG,          //数字过大
+    JSON_PARSE_MISS_QUOTATION_MARK,     //引号缺失
+    JSON_PARSE_INVALID_STRING_ESCAPE,   //无效转义
+    JSON_PARSE_INVALID_STRING_CHAR,     //无效字符
+    JSON_PARSE_INVALID_UNICODE_HEX,     //无效unicode数字
+    JSON_PARSE_INVALID_UNICODE_SURROGATE//无效Unicode代理
 };
 }
 
@@ -29,7 +34,7 @@ enum {
 class Json{
 public:
     Json();
-    ~Json() = default;
+    ~Json();
     /*!
     * @brief:提供给派生类的设置接口
     * @param:要设置的type
@@ -43,20 +48,48 @@ public:
     */
     void set_num(double adouble);
     /*!
+    * @brief:提供给派生类的数字设置接口
+    * @param:要设置的n
+    * @return:void
+    */
+    void set_string(std::string astr);
+    /*!
     * @brief:类型查询接口
     * @param:
     * @return:this.type
     */
     tinyjson::json_type json_get_type() const;
     /*!
+    * @brief:boolean查询接口
+    * @param:
+    * @return:this.type
+    */
+    bool json_get_boolean() const;
+    /*!
     * @brief:数字查询接口
     * @param:
     * @return:this.n
     */
     double  json_get_number() const;
+    /*!
+    * @brief:string查询接口
+    * @param:
+    * @return:this.s
+    */
+    std::string json_get_string() const;
+    /*!
+    * @brief:c_string查询接口,为了和测试部分兼容
+    * @param:
+    * @return:this.s
+    */
+    const char* json_get_c_string() const;
 private:
     tinyjson::json_type type;
-    double n;
+    union {
+        double n;
+        std::string s;
+    };
+
 };
 
 /*!
@@ -81,6 +114,9 @@ private:
     int parse_false();
     int parse_true();
     int parse_number();
+    int parse_string();
+    int parse_hex4(unsigned &u);
+    std::string encode_utf8(unsigned u);
     size_t index;
     const std::string* str_buff;
     size_t str_size;
