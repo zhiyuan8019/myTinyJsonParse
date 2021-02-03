@@ -187,6 +187,10 @@ public:
     int json_parse(const std::string& js_string);
 
 private:
+    /*!
+    * @brief:下列以parse开头的函数为各数据结构的解析函数，
+    * @return:解析状态
+    */
     void parse_ws();
     int parse_value();
     int parse_null();
@@ -195,16 +199,19 @@ private:
     int parse_number();
     int parse_string();
     int parse_hex4(unsigned &u);
-    std::string encode_utf8(unsigned u);
+    std::string encode_utf8(unsigned u);//对解析到的unicode进行编码
     int parse_array();
     int parse_object();
+    //解析位置
     size_t index;
+    //json文本指针
     const std::string* str_buff;
+    //文本长度
     size_t str_size;
 };
 
 //class Json_Generate : private Json{
-//
+//还没写
 //};
 
 #endif /*TINYJSON_H__*/

@@ -5,6 +5,10 @@
 #include <cstring>
 #include <vector>
 
+
+/*!
+* @brief:构造函数
+*/
 Json::Json() {
     type = tinyjson::JSON_NULL;
     n = 0;
@@ -39,10 +43,39 @@ Json::Json(std::multimap<std::string, Json> am) {
     s = "";
     m = am;
 }
+Json::Json(const Json &js) {
+    type = js.type;
+    if(type==tinyjson::JSON_NUMBER){
+        n = js.n;
+    }else if(type==tinyjson::JSON_STRING){
+        s= js.s;
+    }else if(type==tinyjson::JSON_ARRAY){
+        a = js.a;
+    }else if(type==tinyjson::JSON_OBJECT){
+        m = js.m;
+    }
+}
+
+Json &Json::operator=(const Json &js) {
+    type = js.type;
+    if(type==tinyjson::JSON_NUMBER){
+        n = js.n;
+    }else if(type==tinyjson::JSON_STRING){
+        s= js.s;
+    }else if(type==tinyjson::JSON_ARRAY){
+        a = js.a;
+    }else if(type==tinyjson::JSON_OBJECT){
+        m = js.m;
+    }
+    return *this;
+}
 
 Json::~Json() {
 }
 
+/*!
+* @brief:对外接口
+*/
 void Json::set_type(tinyjson::json_type atype) {
     type = atype;
 }
@@ -101,33 +134,6 @@ std::vector<Json> Json::json_get_array() const {
     }else{
         return {};
     }
-}
-
-Json::Json(const Json &js) {
-    type = js.type;
-    if(type==tinyjson::JSON_NUMBER){
-        n = js.n;
-    }else if(type==tinyjson::JSON_STRING){
-        s= js.s;
-    }else if(type==tinyjson::JSON_ARRAY){
-        a = js.a;
-    }else if(type==tinyjson::JSON_OBJECT){
-        m = js.m;
-    }
-}
-
-Json &Json::operator=(const Json &js) {
-    type = js.type;
-    if(type==tinyjson::JSON_NUMBER){
-        n = js.n;
-    }else if(type==tinyjson::JSON_STRING){
-        s= js.s;
-    }else if(type==tinyjson::JSON_ARRAY){
-        a = js.a;
-    }else if(type==tinyjson::JSON_OBJECT){
-        m = js.m;
-    }
-    return *this;
 }
 
 void Json::clear() {
@@ -196,7 +202,11 @@ Json Json::json_get_object_value_by_key(std::string key) const {
     return it->second;
 }
 
-
+/*!
+* @brief:解析入口
+* @param:json文本
+* @return:解析状态
+*/
 int Json_Parse::json_parse(const std::string &js_string) {
     str_buff = &js_string;
     str_size = str_buff->length();
@@ -274,9 +284,7 @@ int Json_Parse::parse_true() {
     return tinyjson::JSON_PARSE_OK;
 }
 /*!
-* @brief:数字解析，由于stod()是json数字语法规则的超集，需要先检测
-* @param:
-* @return:
+* @brief:数字解析，装换部分基于stod(),但是stod()是json数字语法规则的超集，需要先检测
 */
 int Json_Parse::parse_number() {
     std::string num;
