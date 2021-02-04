@@ -163,6 +163,13 @@ public:
     * @return:
     */
     void clear();
+    /*!
+    * @brief:生成接口，对json数据生成json文本
+    * @param:
+    * @return:json字符串
+    */
+    std::string json_generater() ;
+    void json_generater_value(std::string &,Json &) ;
 private:
     tinyjson::json_type type;
     double n;
@@ -185,7 +192,6 @@ public:
     * @return:解析结果
     */
     int json_parse(const std::string& js_string);
-
 private:
     /*!
     * @brief:下列以parse开头的函数为各数据结构的解析函数，

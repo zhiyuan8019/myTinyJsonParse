@@ -1,9 +1,9 @@
 #include "tinyjson.h"
-#include <string>
+
 #include <cctype>
 #include <stdexcept>
 #include <cstring>
-#include <vector>
+
 
 
 /*!
@@ -201,6 +201,97 @@ Json Json::json_get_object_value_by_key(std::string key) const {
     auto it = m.find(key);
     return it->second;
 }
+
+std::string Json::json_generater() {
+    std::string result;
+    switch (type) {
+        case tinyjson::JSON_NULL:
+            result = "null";
+            break;
+        case tinyjson::JSON_FALSE:
+            result = "false";
+            break;
+        case tinyjson::JSON_TRUE:
+            result = "true";
+            break;
+        case tinyjson::JSON_NUMBER:
+            result = std::to_string(n);
+            break;
+        case tinyjson::JSON_STRING:
+            result = '\"'+s+'\"';
+            break;
+        case tinyjson::JSON_ARRAY:
+            result += '[';
+            for(int i=0;i<a.size();++i){
+                json_generater_value(result,a[i]);
+                if(i!=a.size()-1)result+=',';
+            }
+            result += ']';
+            break;
+        case tinyjson::JSON_OBJECT:
+            result += '{';
+            for(auto it=m.begin();it!=m.end();++it){
+                result += '\"';
+                result += it->first;
+                result += '\"';
+                result += ':';
+                json_generater_value(result,it->second);
+                result+=',';
+            }
+            result.pop_back();
+            result += '}';
+            break;
+    }
+    return result;
+}
+
+void Json::json_generater_value(std::string &r,Json &js) {
+    auto atype = js.json_get_type();
+    switch (atype) {
+        case tinyjson::JSON_NULL:
+            r += "null";
+            break;
+        case tinyjson::JSON_FALSE:
+            r += "false";
+            break;
+        case tinyjson::JSON_TRUE:
+            r +=  "true";
+            break;
+        case tinyjson::JSON_NUMBER:
+            r +=  std::to_string(js.json_get_number());
+            break;
+        case tinyjson::JSON_STRING:
+            r += '\"';
+            r += js.json_get_string();
+            r += '\"';
+            break;
+        case tinyjson::JSON_ARRAY:{
+            r += '[';
+            std::vector<Json> av = js.json_get_array();
+            for(int i=0;i<a.size();++i){
+                json_generater_value(r,av[i]);
+                if(i!=a.size()-1)r +=',';
+            }
+            r += ']';
+            break;
+        }
+        case tinyjson::JSON_OBJECT:
+            r += '{';
+            std::multimap<std::string,Json> am = js.json_get_object();
+            for(auto it=am.begin();it!=am.end();++it){
+                r += '\"';
+                r += it->first;
+                r += '\"';
+                r += ':';
+                json_generater_value(r,it->second);
+                r+=',';
+            }
+            r.pop_back();
+            r += '}';
+            break;
+    }
+}
+
 
 /*!
 * @brief:解析入口
@@ -549,3 +640,4 @@ int Json_Parse::parse_object() {
     if(ret!=tinyjson::JSON_PARSE_OK)set_type(tinyjson::JSON_NULL);
     return ret;
 }
+

@@ -315,8 +315,25 @@ static void test_parse() {
     test_parse_miss_comma_or_curly_bracket();
 }
 
+static void test_generate() {
+    Json_Parse js;
+    std::string json_text = "{"
+                            "\"title\": \"Design Patterns\","
+                            "\"subtitle\": \"Elements of Reusable Object-Oriented Software\","
+                            "\"author\": [\"Erich Gamma\",\"Richard Helm\",\"Ralph Johnson\",\"John Vlissides\"],"
+                            "\"year\": 2009,"
+                            "\"weight\": 1.8,"
+                            "\"hardcover\": true,"
+                            "\"publisher\": {\"Company\": \"Pearson Education\",\"Country\": \"India\"},"
+                            "\"website\": null}";
+    js.json_parse(json_text);
+    std::string result = js.json_generater();
+    printf("%s\n",result.c_str());
+}
+
 int main() {
     test_parse();
+    test_generate();
     printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
     return main_ret;
 }
