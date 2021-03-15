@@ -2,74 +2,62 @@
 #include <stdlib.h>
 #include <string>
 #include "tinyjson.h"
+#include <cstring>
+#include "gtest/gtest.h"
 
 using namespace tinyjson;
 
-static int main_ret = 0;
-static int test_count = 0;
-static int test_pass = 0;
-
-#define EXPECT_EQ_BASE(equality, expect, actual, format) \
+#define TEST_EQUAL(except, json_text)\
     do {\
-        test_count++;\
-        if (equality)\
-            test_pass++;\
-        else {\
-            fprintf(stderr, "%s:%d: expect: " format " actual: " format "\n", __FILE__, __LINE__, expect, actual);\
-            main_ret = 1;\
-         }\
+        EXPECT_EQ(JSON_PARSE_OK,v.json_parse(json_text));\
+        EXPECT_EQ(except, v.json_get_type());\
     } while(0)
 
-#define EXPECT_EQ_INT(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%d")
-#define EXPECT_EQ_DOUBLE(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%.17g")
-#define EXPECT_EQ_STRING(expect, actual, alength) \
-    EXPECT_EQ_BASE(sizeof(expect) - 1 == alength && memcmp(expect, actual, alength) == 0, expect, actual, "%s")
-#define EXPECT_TRUE(actual) EXPECT_EQ_BASE((actual) != 0, "true", "false", "%s")
-#define EXPECT_FALSE(actual) EXPECT_EQ_BASE((actual) == 0, "false", "true", "%s")
-#define EXPECT_EQ_SIZE(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%d")
-#define TEST_NUMBER(expect, json)\
+#define TEST_NUMBER(expect, json_text)\
     do {\
-        Json_Parse v;\
-        EXPECT_EQ_INT(JSON_PARSE_OK,  v.json_parse(json));\
-        EXPECT_EQ_INT(JSON_NUMBER, v.json_get_type());\
-        EXPECT_EQ_DOUBLE(expect, v.json_get_number());\
+        EXPECT_EQ(JSON_PARSE_OK,  v.json_parse(json_text));\
+        EXPECT_EQ(JSON_NUMBER, v.json_get_type());\
+        EXPECT_DOUBLE_EQ(expect, v.json_get_number());\
+    } while(0)
+
+#define TEST_STRING(expect, json_text)\
+    do {\
+        EXPECT_EQ(JSON_PARSE_OK,  v.json_parse(json_text));\
+        EXPECT_EQ(JSON_STRING, v.json_get_type());\
+        EXPECT_EQ(expect,v.json_get_string());\
     } while(0)
 
 #define TEST_ERROR(error, json)\
     do {\
-        Json_Parse v;\
-        EXPECT_EQ_INT(error,v.json_parse(json));\
-        EXPECT_EQ_INT(JSON_NULL, v.json_get_type());\
+        EXPECT_EQ(error,v.json_parse(json));\
+        EXPECT_EQ(JSON_NULL, v.json_get_type());\
     } while(0)
 
-#define TEST_EQUAL(except, json)\
-    do {\
-        Json_Parse v;\
-        EXPECT_EQ_INT(JSON_PARSE_OK,v.json_parse(json));\
-        EXPECT_EQ_INT(except, v.json_get_type());\
-    } while(0)
+class JsonParseTest : public ::testing::Test {
+protected:
+    void SetUp() override {
 
-#define TEST_STRING(expect, json)\
-    do {\
-        Json_Parse v;\
-        EXPECT_EQ_INT(JSON_PARSE_OK,  v.json_parse(json));\
-        EXPECT_EQ_INT(JSON_STRING, v.json_get_type());\
-        const char * result = v.json_get_c_string();\
-        EXPECT_EQ_STRING(expect,result,v.json_get_string().length());\
-        delete [] result;\
-    } while(0)
+    }
 
-static void test_parse_null() {
+    // void TearDown() override {}
+
+    Json_Parse v;
+};
+
+
+TEST_F(JsonParseTest, TestNull) {
     TEST_EQUAL(JSON_NULL,"null");
 }
-static void test_parse_false() {
+
+TEST_F(JsonParseTest,TestFalse){
     TEST_EQUAL(JSON_FALSE,"false");
 }
-static void test_parse_true() {
+
+TEST_F(JsonParseTest,TestTrue){
     TEST_EQUAL(JSON_TRUE,"true");
 }
 
-static void test_parse_number() {
+TEST_F(JsonParseTest,TestNumber){
     TEST_NUMBER(0.0, "0");
     TEST_NUMBER(0.0, "-0");
     TEST_NUMBER(0.0, "-0.0");
@@ -100,13 +88,86 @@ static void test_parse_number() {
     TEST_NUMBER(-1.7976931348623157e+308, "-1.7976931348623157e+308");
 }
 
-
-static void test_parse_expect_value() {
-    TEST_ERROR(JSON_PARSE_EXPECT_VALUE,"");
-    TEST_ERROR(JSON_PARSE_EXPECT_VALUE," ");
+TEST_F(JsonParseTest,TestString){
+    TEST_STRING("", "\"\"");
+    TEST_STRING("Hello", "\"Hello\"");
+#if 1
+    TEST_STRING("Hello\nWorld", "\"Hello\\nWorld\"");
+    TEST_STRING("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
+    //EQ断言读取expect中的'/0'会出现截断，使用STREQ进行cstr测试
+    v.json_parse("\"Hello\\u0000World\"");
+    EXPECT_STREQ("Hello\0World",v.json_get_c_string());
+    TEST_STRING("\x24", "\"\\u0024\"");         /* Dollar sign U+0024 */
+    TEST_STRING("\xC2\xA2", "\"\\u00A2\"");     /* Cents sign U+00A2 */
+    TEST_STRING("\xE2\x82\xAC", "\"\\u20AC\""); /* Euro sign U+20AC */
+    TEST_STRING("\xF0\x9D\x84\x9E", "\"\\uD834\\uDD1E\"");  /* G clef sign U+1D11E */
+    TEST_STRING("\xF0\x9D\x84\x9E", "\"\\ud834\\udd1e\"");  /* G clef sign U+1D11E */
+#endif
 }
 
-static void test_parse_invalid_value() {
+TEST_F(JsonParseTest,TestArray){
+#if 1
+    v.json_parse("[ null , false , true , 123 , \"abc\" ]");
+    auto result = v.json_get_array();
+    EXPECT_EQ(JSON_NULL,result[0].json_get_type());
+    EXPECT_EQ(JSON_FALSE,result[1].json_get_type());
+    EXPECT_EQ(JSON_TRUE,result[2].json_get_type());
+    EXPECT_EQ(JSON_NUMBER,result[3].json_get_type());
+    EXPECT_EQ(JSON_STRING,result[4].json_get_type());
+#endif
+#if 1
+    v.json_parse("[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]");
+    auto result1 = v.json_get_array();
+    EXPECT_EQ(JSON_ARRAY,result1[0].json_get_type());
+    EXPECT_EQ(JSON_ARRAY,result1[1].json_get_type());
+    EXPECT_EQ(JSON_ARRAY,result1[2].json_get_type());
+    EXPECT_EQ(JSON_ARRAY,result1[3].json_get_type());
+    auto arr2 = result1[1].json_get_array();
+    EXPECT_EQ(JSON_NUMBER,arr2[0].json_get_type());
+    auto arr3 = result1[2].json_get_array();
+    EXPECT_EQ(JSON_NUMBER,arr3[0].json_get_type());
+    EXPECT_EQ(JSON_NUMBER,arr3[1].json_get_type());
+    auto arr4 = result1[3].json_get_array();
+    EXPECT_EQ(JSON_NUMBER,arr4[0].json_get_type());
+    EXPECT_EQ(JSON_NUMBER,arr4[1].json_get_type());
+    EXPECT_EQ(JSON_NUMBER,arr4[2].json_get_type());
+#endif
+}
+
+static void test_parse_object() {
+    Json_Parse v;
+    EXPECT_EQ(JSON_PARSE_OK, v.json_parse(" { } "));
+    EXPECT_EQ(JSON_OBJECT, v.json_get_type());
+    v.clear();
+    EXPECT_EQ(JSON_PARSE_OK, v.json_parse(
+            " { "
+            "\"n\" : null , "
+            "\"f\" : false , "
+            "\"t\" : true , "
+            "\"i\" : 123 , "
+            "\"s\" : \"abc\", "
+            "\"a\" : [ 1, 2, 3 ],"
+            "\"o\" : { \"1\" : 1, \"2\" : 2, \"3\" : 3 }"
+            " } "
+    ));
+    EXPECT_EQ(JSON_OBJECT, v.json_get_type());
+    EXPECT_EQ(7, v.json_get_object_size());
+    EXPECT_EQ(JSON_NULL,   v.json_get_object_value_by_key("n").json_get_type());
+    EXPECT_EQ(JSON_FALSE,  v.json_get_object_value_by_key("f").json_get_type());
+    EXPECT_EQ(JSON_TRUE,   v.json_get_object_value_by_key("t").json_get_type());
+    EXPECT_EQ(JSON_NUMBER, v.json_get_object_value_by_key("i").json_get_type());
+    EXPECT_DOUBLE_EQ(123.0, v.json_get_object_value_by_key("i").json_get_number());
+    EXPECT_EQ(JSON_STRING, v.json_get_object_value_by_key("s").json_get_type());
+    EXPECT_EQ("abc", v.json_get_object_value_by_key("s").json_get_string());
+    EXPECT_EQ(JSON_ARRAY, v.json_get_object_value_by_key("a").json_get_type());
+    EXPECT_EQ(JSON_OBJECT, v.json_get_object_value_by_key("o").json_get_type());
+}
+
+TEST_F(JsonParseTest,TestInvalidValue){
+    //Expect Value
+    TEST_ERROR(JSON_PARSE_EXPECT_VALUE,"");
+    TEST_ERROR(JSON_PARSE_EXPECT_VALUE," ");
+    //Invalid
     TEST_ERROR(JSON_PARSE_INVALID_VALUE,"nul");
     TEST_ERROR(JSON_PARSE_INVALID_VALUE,"?");
 #if  1
@@ -126,90 +187,14 @@ static void test_parse_invalid_value() {
     TEST_ERROR(JSON_PARSE_NUMBER_TOO_BIG, "1e309");
     TEST_ERROR(JSON_PARSE_NUMBER_TOO_BIG, "-1e309");
 #endif
-#if 0
+#if 1
+    //Invalid array
     TEST_ERROR(JSON_PARSE_INVALID_VALUE, "[1,]");
     TEST_ERROR(JSON_PARSE_INVALID_VALUE, "[\"a\", nul]");
 #endif
 }
 
-static void test_parse_string() {
-    TEST_STRING("", "\"\"");
-    TEST_STRING("Hello", "\"Hello\"");
-#if 1
-    TEST_STRING("Hello\nWorld", "\"Hello\\nWorld\"");
-    TEST_STRING("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
-    TEST_STRING("Hello\0World", "\"Hello\\u0000World\"");
-    TEST_STRING("\x24", "\"\\u0024\"");         /* Dollar sign U+0024 */
-    TEST_STRING("\xC2\xA2", "\"\\u00A2\"");     /* Cents sign U+00A2 */
-    TEST_STRING("\xE2\x82\xAC", "\"\\u20AC\""); /* Euro sign U+20AC */
-    TEST_STRING("\xF0\x9D\x84\x9E", "\"\\uD834\\uDD1E\"");  /* G clef sign U+1D11E */
-    TEST_STRING("\xF0\x9D\x84\x9E", "\"\\ud834\\udd1e\"");  /* G clef sign U+1D11E */
-#endif
-}
-
-static void test_parse_array() {
-#if 1
-    Json_Parse v;
-    v.json_parse("[ null , false , true , 123 , \"abc\" ]");
-    auto result = v.json_get_array();
-    EXPECT_EQ_INT(JSON_NULL,result[0].json_get_type());
-    EXPECT_EQ_INT(JSON_FALSE,result[1].json_get_type());
-    EXPECT_EQ_INT(JSON_TRUE,result[2].json_get_type());
-    EXPECT_EQ_INT(JSON_NUMBER,result[3].json_get_type());
-    EXPECT_EQ_INT(JSON_STRING,result[4].json_get_type());
-#endif
-#if 1
-    Json_Parse v1;
-    v1.json_parse("[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]");
-    auto result1 = v1.json_get_array();
-    EXPECT_EQ_INT(JSON_ARRAY,result1[0].json_get_type());
-    EXPECT_EQ_INT(JSON_ARRAY,result1[1].json_get_type());
-    EXPECT_EQ_INT(JSON_ARRAY,result1[2].json_get_type());
-    EXPECT_EQ_INT(JSON_ARRAY,result1[3].json_get_type());
-    auto arr2 = result1[1].json_get_array();
-    EXPECT_EQ_INT(JSON_NUMBER,arr2[0].json_get_type());
-    auto arr3 = result1[2].json_get_array();
-    EXPECT_EQ_INT(JSON_NUMBER,arr3[0].json_get_type());
-    EXPECT_EQ_INT(JSON_NUMBER,arr3[1].json_get_type());
-    auto arr4 = result1[3].json_get_array();
-    EXPECT_EQ_INT(JSON_NUMBER,arr4[0].json_get_type());
-    EXPECT_EQ_INT(JSON_NUMBER,arr4[1].json_get_type());
-    EXPECT_EQ_INT(JSON_NUMBER,arr4[2].json_get_type());
-#endif
-}
-
-static void test_parse_object() {
-    Json_Parse v;
-    EXPECT_EQ_INT(JSON_PARSE_OK, v.json_parse(" { } "));
-    EXPECT_EQ_INT(JSON_OBJECT, v.json_get_type());
-    v.clear();
-    EXPECT_EQ_INT(JSON_PARSE_OK, v.json_parse(
-                                            " { "
-                                            "\"n\" : null , "
-                                            "\"f\" : false , "
-                                            "\"t\" : true , "
-                                            "\"i\" : 123 , "
-                                            "\"s\" : \"abc\", "
-                                            "\"a\" : [ 1, 2, 3 ],"
-                                            "\"o\" : { \"1\" : 1, \"2\" : 2, \"3\" : 3 }"
-                                            " } "
-    ));
-    EXPECT_EQ_INT(JSON_OBJECT, v.json_get_type());
-    EXPECT_EQ_SIZE(7, v.json_get_object_size());
-    EXPECT_EQ_INT(JSON_NULL,   v.json_get_object_value_by_key("n").json_get_type());
-    EXPECT_EQ_INT(JSON_FALSE,  v.json_get_object_value_by_key("f").json_get_type());
-    EXPECT_EQ_INT(JSON_TRUE,   v.json_get_object_value_by_key("t").json_get_type());
-    EXPECT_EQ_INT(JSON_NUMBER, v.json_get_object_value_by_key("i").json_get_type());
-    EXPECT_EQ_DOUBLE(123.0, v.json_get_object_value_by_key("i").json_get_number());
-    EXPECT_EQ_INT(JSON_STRING, v.json_get_object_value_by_key("s").json_get_type());
-    EXPECT_EQ_STRING("abc", v.json_get_object_value_by_key("s").json_get_c_string(), v.json_get_object_value_by_key("s").json_get_string().length());
-    EXPECT_EQ_INT(JSON_ARRAY, v.json_get_object_value_by_key("a").json_get_type());
-    EXPECT_EQ_INT(JSON_OBJECT, v.json_get_object_value_by_key("o").json_get_type());
-}
-
-
-
-static void test_parse_root_not_singular() {
+TEST_F(JsonParseTest,TestRootNotSingular){
     TEST_ERROR(JSON_PARSE_ROOT_NOT_SINGULAR,"null x");
 
 #if 1
@@ -220,24 +205,24 @@ static void test_parse_root_not_singular() {
 #endif
 }
 
-static void test_parse_missing_quotation_mark() {
+TEST_F(JsonParseTest,TestMissQuotationMark){
     TEST_ERROR(JSON_PARSE_MISS_QUOTATION_MARK, "\"");
     TEST_ERROR(JSON_PARSE_MISS_QUOTATION_MARK, "\"abc");
 }
 
-static void test_parse_invalid_string_escape() {
+TEST_F(JsonParseTest,TestInvalidSrtingEscape){
     TEST_ERROR(JSON_PARSE_INVALID_STRING_ESCAPE, "\"\\v\"");
     TEST_ERROR(JSON_PARSE_INVALID_STRING_ESCAPE, "\"\\'\"");
     TEST_ERROR(JSON_PARSE_INVALID_STRING_ESCAPE, "\"\\0\"");
     TEST_ERROR(JSON_PARSE_INVALID_STRING_ESCAPE, "\"\\x12\"");
 }
 
-static void test_parse_invalid_string_char() {
+TEST_F(JsonParseTest,TestInvalidStringChar){
     TEST_ERROR(JSON_PARSE_INVALID_STRING_CHAR, "\"\x01\"");
     TEST_ERROR(JSON_PARSE_INVALID_STRING_CHAR, "\"\x1F\"");
 }
 
-static void test_parse_invalid_unicode_hex() {
+TEST_F(JsonParseTest,TestInvalidUnicodeHex){
     TEST_ERROR(JSON_PARSE_INVALID_UNICODE_HEX, "\"\\u\"");
     TEST_ERROR(JSON_PARSE_INVALID_UNICODE_HEX, "\"\\u0\"");
     TEST_ERROR(JSON_PARSE_INVALID_UNICODE_HEX, "\"\\u01\"");
@@ -253,7 +238,7 @@ static void test_parse_invalid_unicode_hex() {
     TEST_ERROR(JSON_PARSE_INVALID_UNICODE_HEX, "\"\\u 123\"");
 }
 
-static void test_parse_invalid_unicode_surrogate() {
+TEST_F(JsonParseTest,TestInvalidUnicodeSurrogate){
     TEST_ERROR(JSON_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\"");
     TEST_ERROR(JSON_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uDBFF\"");
     TEST_ERROR(JSON_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\\\\"");
@@ -261,7 +246,7 @@ static void test_parse_invalid_unicode_surrogate() {
     TEST_ERROR(JSON_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uE000\"");
 }
 
-static void test_parse_miss_comma_or_square_bracket() {
+TEST_F(JsonParseTest,TestMissCommaOrSquareBracket){
 #if 1
     TEST_ERROR(JSON_PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1");
     TEST_ERROR(JSON_PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1}");
@@ -270,7 +255,7 @@ static void test_parse_miss_comma_or_square_bracket() {
 #endif
 }
 
-static void test_parse_miss_key() {
+TEST_F(JsonParseTest,TestMissKey){
     TEST_ERROR(JSON_PARSE_MISS_KEY, "{:1,");
     TEST_ERROR(JSON_PARSE_MISS_KEY, "{1:1,");
     TEST_ERROR(JSON_PARSE_MISS_KEY, "{true:1,");
@@ -281,41 +266,19 @@ static void test_parse_miss_key() {
     TEST_ERROR(JSON_PARSE_MISS_KEY, "{\"a\":1,");
 }
 
-static void test_parse_miss_colon() {
+TEST_F(JsonParseTest,TestMissColon){
     TEST_ERROR(JSON_PARSE_MISS_COLON, "{\"a\"}");
     TEST_ERROR(JSON_PARSE_MISS_COLON, "{\"a\",\"b\"}");
 }
 
-static void test_parse_miss_comma_or_curly_bracket() {
+TEST_F(JsonParseTest,TestMissCommaOrCurlyBracket){
     TEST_ERROR(JSON_PARSE_MISS_COMMA_OR_CURLY_BRACKET, "{\"a\":1");
     TEST_ERROR(JSON_PARSE_MISS_COMMA_OR_CURLY_BRACKET, "{\"a\":1]");
     TEST_ERROR(JSON_PARSE_MISS_COMMA_OR_CURLY_BRACKET, "{\"a\":1 \"b\"");
     TEST_ERROR(JSON_PARSE_MISS_COMMA_OR_CURLY_BRACKET, "{\"a\":{}");
 }
 
-static void test_parse() {
-    test_parse_null();
-    test_parse_true();
-    test_parse_false();
-    test_parse_number();
-    test_parse_string();
-    test_parse_array();
-    test_parse_object();
-    test_parse_expect_value();
-    test_parse_invalid_value();
-    test_parse_root_not_singular();
-    test_parse_missing_quotation_mark();
-    test_parse_invalid_string_escape();
-    test_parse_invalid_string_char();
-    test_parse_invalid_unicode_hex();
-    test_parse_invalid_unicode_surrogate();
-    test_parse_miss_comma_or_square_bracket();
-    test_parse_miss_key();
-    test_parse_miss_colon();
-    test_parse_miss_comma_or_curly_bracket();
-}
-
-static void test_generate() {
+TEST(JsonDumpTest,TestGenerate){
     Json_Parse js;
     std::string json_text = "{"
                             "\"title\": \"Design Patterns\","
@@ -326,14 +289,14 @@ static void test_generate() {
                             "\"hardcover\": true,"
                             "\"publisher\": {\"Company\": \"Pearson Education\",\"Country\": \"India\"},"
                             "\"website\": null}";
-    js.json_parse(json_text);
+    EXPECT_EQ(JSON_PARSE_OK,js.json_parse(json_text));
+    EXPECT_EQ(JSON_OBJECT,js.json_get_type());
     std::string result = js.json_generater();
     printf("%s\n",result.c_str());
 }
 
-int main() {
-    test_parse();
-    test_generate();
-    printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
-    return main_ret;
+int main(int argc, char **argv)
+{
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
