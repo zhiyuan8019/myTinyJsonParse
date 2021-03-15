@@ -8,10 +8,6 @@ namespace tinyjson{
 //json数据类型
 typedef enum { JSON_NULL = 0, JSON_FALSE, JSON_TRUE, JSON_NUMBER, JSON_STRING, JSON_ARRAY, JSON_OBJECT } json_type;
 
-
-//解析状态,原项目是手写的递归下降，状态机部分暂时空置
-//typedef enum { } States;
-
 //解析结果
 enum {
     JSON_PARSE_OK = 0,                      //OK
@@ -52,7 +48,7 @@ public:
 
     Json(const Json&);
 
-    Json &Json::operator =(const Json &);
+    Json &operator =(const Json &);
 
     ~Json();
     /*!
@@ -216,8 +212,5 @@ private:
     size_t str_size;
 };
 
-//class Json_Generate : private Json{
-//还没写
-//};
 
 #endif /*TINYJSON_H__*/
