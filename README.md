@@ -3,7 +3,7 @@
 ## 本项目是项目[json-tutorial](https://github.com/miloyip/json-tutorial) 的C++"重构"版本
 
 ### 简介（Introduction）：
-本项目基于c++11编写，能够对Json字符串进行递归下降的解析并能反向生成。包含基本的测试框架。
+本项目基于c++11编写，能够对Json字符串进行递归下降的解析并能反向生成。使用gtest作为测试框架，包含基本的单元测试
 
 ### 调用：
 
@@ -28,3 +28,7 @@ js.json_parse(json_text);
 std::string result = js.json_generater();
 std::cout<< result <<std::endl;
 ```
+
+### 注意
+
+要运行单元测试，请确保gtest在环境内并确定cmake文件配置正确，或者使用test_old
